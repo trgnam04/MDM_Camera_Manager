@@ -57,83 +57,29 @@ public:
 };
 
 
-class HardwareController {
-private:
-    const std::string TARGET_VENDOR_ID = "13d3";
-    const std::string TARGET_PRODUCT_ID = "56eb";
-
-    std::string readFile(const std::string& path) {
-        std::ifstream file(path);
-        if (!file.is_open()) return "";
-        std::string content;
-        file >> content;
-        return content;
-    }
-    
-    std::string findCameraDevicePath() {
-        const std::string basePath = "/sys/bus/usb/devices/";
-        DIR* dir = opendir(basePath.c_str());
-        if (!dir) {
-            perror("[HW][ERROR] Cannot open /sys/bus/usb/devices");
-            return "";
-        }
-
-        std::cout << "[HW][INFO] Searching for camera with VendorID=" << TARGET_VENDOR_ID 
-                  << " and ProductID=" << TARGET_PRODUCT_ID << " ..." << std::endl;
-
-        struct dirent* entry;
-        while ((entry = readdir(dir)) != NULL) {
-            std::string deviceName = entry->d_name;
-            if (deviceName == "." || deviceName == "..") continue;
-
-            std::string devicePath = basePath + deviceName;
-            std::string vendorIdPath = devicePath + "/idVendor";
-            std::string productIdPath = devicePath + "/idProduct";
-            
-            if (readFile(vendorIdPath) == TARGET_VENDOR_ID && readFile(productIdPath) == TARGET_PRODUCT_ID) {
-                std::cout << "[HW][INFO] Camera device detected at: " << devicePath << std::endl;
-                closedir(dir);
-                return devicePath;
+class HardwareController {    
+public:        
+    void setCameraState(bool enable) {
+        if (enable) {
+            int ret = system("chmod 660 /dev/video*");
+            if(ret == -1)
+            {
+                std::cerr << "[MGM][ERROR] Failed to change camera permissions." << std::endl;
             }
         }
-
-        closedir(dir);
-        std::cerr << "[HW][ERROR] No matching camera device found!" << std::endl;
-        return "";
-    }
-
-
-public:    
-    void setCameraState(bool enable) {
-        std::string devicePath = findCameraDevicePath();
-        if (devicePath.empty()) {
-            std::cerr << "[HW][WARN] Camera state cannot be changed because device was not found." << std::endl;
-            return;
-        }
-
-        std::string authorizedPath = devicePath + "/authorized";
-        std::ofstream authorizedFile(authorizedPath);
-
-        if (!authorizedFile.is_open()) {
-            std::cerr << "[HW][ERROR] Cannot open file: " << authorizedPath 
-                      << ". Did you run with 'sudo' privileges?" << std::endl;
-            return;
-        }
-
-        const char* value = enable ? "1" : "0";
-        authorizedFile << value;
-        authorizedFile.close();
-
-        if (authorizedFile.fail()) {
-             std::cerr << "[HW][ERROR] Failed to write to file: " << authorizedPath << std::endl;
-        } else {
-            std::cout << "[HW][INFO] Camera has been successfully " << (enable ? "ENABLED" : "DISABLED") << "." << std::endl;
+        else {
+            int ret = system("chmod 000 /dev/video*");
+            if (ret == -1)
+            {
+                std::cerr << "[MGM][ERROR] Failed to change camera permissions." << std::endl;
+            }
+            
         }
     }
 };
 
 
-int main() {    
+int main() {        
     if (geteuid() != 0) {
         std::cerr << "[MAIN][ERROR] This program requires root privileges. Please run with 'sudo'." << std::endl;
         return 1;
@@ -148,5 +94,5 @@ int main() {
     std::cout << "[MAIN][INFO] Operation completed. Final camera state request: " 
               << (shouldBeEnabled ? "ENABLED" : "DISABLED") << std::endl;
 
-    return 0;
+    return 0;    
 }

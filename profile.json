@@ -3,7 +3,7 @@
         {
             "key": "connectivity.camera",
             "name": "Camera",
-            "value": false
+            "value": true
         }
     ]
 }
